@@ -17,6 +17,7 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 TAVILY_API_KEY = os.getenv("TAVILY_API_KEY")
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
+TELEGRAM_CHANNEL_ID = os.getenv("TELEGRAM_CHANNEL_ID")
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 SEEN_NEWS_FILE = os.path.join(BASE_DIR, "seen_news.json")
@@ -185,7 +186,6 @@ def get_news_digest(seen_urls: set):
             "topic": "news",
         },
         "HACKATHONS_BOUNTIES": {
-            # Memfilter kata kunci 'finished' dan 'ended' agar tidak mengambil kompetisi kadaluwarsa
             "query": (
                 '("AI hackathon" OR "cloud challenge" OR "bounty" OR "developer grant") '
                 '("prize pool" OR "cash prize" OR "reward") '
@@ -248,12 +248,12 @@ Format Template:
 ====================================
 
 🚨 **SRE & CLOUD INCIDENT INTELLIGENCE**
-• **[Judul Artikel / Insiden]**
+- **[Judul Artikel / Insiden]**
   [Analisis teknis 1-2 kalimat: Masalah / Root cause / Mitigasi]
   🔗 Baca laporan: [URL]
 
 🏆 **GLOBAL HACKATHONS & BOUNTY RADAR**
-• **[Nama Hackathon / Proyek Bounty]**
+- **[Nama Hackathon / Proyek Bounty]**
   💰 Hadiah: [Estimasi Prize Pool / Reward] | 🛠️ Fokus: [Tech stack / Track tantangan]
   🔗 Info & Daftar: [URL]
 """
@@ -280,7 +280,7 @@ def send_safe_message(chat_id, text):
             bot.send_message(chat_id, text, disable_web_page_preview=True)
             return True
         except Exception as err:
-            print(f"❌ Gagal total kirim ke Telegram: {err}")
+            print(f"❌ Gagal total kirim ke Telegram ({chat_id}): {err}")
             return False
 
 
@@ -289,7 +289,11 @@ if __name__ == "__main__":
 
     if is_cron_mode:
         print("🚀 Menjalankan Digest Bot dalam MODE CRON (GitHub Actions)...")
-        if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
+
+        # Mengumpulkan target pengiriman (DM pribadi & Channel)
+        target_chats = [cid.strip() for cid in [TELEGRAM_CHAT_ID, TELEGRAM_CHANNEL_ID] if cid]
+
+        if not TELEGRAM_BOT_TOKEN or not target_chats:
             print("❌ Error: Secrets Telegram belum diset.")
             sys.exit(1)
 
@@ -299,9 +303,14 @@ if __name__ == "__main__":
         try:
             report, new_urls = get_news_digest(seen_urls)
             if report:
-                print(f"📤 Mengirim laporan ke Chat ID: {TELEGRAM_CHAT_ID}...")
-                success = send_safe_message(TELEGRAM_CHAT_ID, report)
-                if success and new_urls:
+                any_success = False
+
+                for target in target_chats:
+                    print(f"📤 Mengirim laporan ke Target: {target}...")
+                    if send_safe_message(target, report):
+                        any_success = True
+
+                if any_success and new_urls:
                     seen_urls.update(new_urls)
                     save_seen_news(seen_urls)
                     print("✅ Berhasil dikirim dan state seen_news.json diperbarui.")
