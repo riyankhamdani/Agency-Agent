@@ -1,4 +1,3 @@
-import hashlib
 import json
 import os
 import random
@@ -10,7 +9,6 @@ import requests
 import telebot
 from google import genai
 from google.genai import types
-from google.genai.errors import APIError
 
 # Environment Credentials
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
@@ -66,6 +64,7 @@ def save_seen_news(seen_news: set):
 
 
 def search_tavily(query: str, seen_urls: set, domains: list = None, topic: str = "general"):
+    """Karyawan 1 (Scout): Menyisir intel teknis dan bounty/hackathon."""
     if not TAVILY_API_KEY:
         print("⚠️ Warning: TAVILY_API_KEY tidak ditemukan.")
         return []
@@ -98,7 +97,7 @@ def search_tavily(query: str, seen_urls: set, domains: list = None, topic: str =
                     "title": r.get("title", "No Title"),
                     "url": raw_link,
                     "clean_url": clean_link,
-                    "snippet": r.get("content", "")[:350],
+                    "snippet": r.get("content", "")[:600],
                 })
 
             return valid_articles[:3]
@@ -110,7 +109,7 @@ def search_tavily(query: str, seen_urls: set, domains: list = None, topic: str =
         return []
 
 
-def generate_summary_with_fallback(client, prompt, retries_per_model=3, initial_delay=5):
+def generate_with_fallback(client, prompt: str, temperature: float = 0.3, retries_per_model: int = 3, initial_delay: int = 5) -> str:
     """Memanggil Gemini API secara dinamis dengan fallback model aktif di akun."""
     candidate_models = []
 
@@ -142,7 +141,7 @@ def generate_summary_with_fallback(client, prompt, retries_per_model=3, initial_
         ]
 
     config = types.GenerateContentConfig(
-        temperature=0.2,
+        temperature=temperature,
         automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
     )
 
@@ -154,7 +153,7 @@ def generate_summary_with_fallback(client, prompt, retries_per_model=3, initial_
                     model=model_name, contents=prompt, config=config
                 )
                 if response.text:
-                    print(f"✅ Sukses generate summary menggunakan model: {model_name}")
+                    print(f"✅ Sukses generate menggunakan model: {model_name}")
                     return response.text
             except Exception as e:
                 err_msg = str(e)
@@ -170,8 +169,87 @@ def generate_summary_with_fallback(client, prompt, retries_per_model=3, initial_
     raise Exception("Gagal mendapatkan respons dari seluruh kandidat model Gemini.")
 
 
+def agent_architect(client, digest_data: dict) -> str:
+    """
+    Karyawan 2 (Solutions & Content Architect):
+    Mengubah berita mentah menjadi aset siap pakai (Draf Postingan Authority + Blueprint Eksekusi Bounty).
+    """
+    prompt = f"""
+You are a Senior Cloud/SRE Solutions Architect and Ghostwriter working for Riyan (a Cloud & DevOps Engineer experienced in Kubernetes, Terraform, CI/CD, and AI infra).
+Your job is NOT just to summarize news, but to turn raw intelligence into READY-TO-USE MONEY & AUTHORITY ASSETS so Riyan doesn't have to think from scratch.
+
+RAW DATA:
+{json.dumps(digest_data, indent=2)}
+
+Instructions:
+1. Analyze the items in OUTAGES, CLOUD_AI_INFRA, and HACKATHONS_BOUNTIES.
+2. Pick ONLY the highest-impact technical incident/release and the best ACTIVE/UPCOMING hackathon or paid bounty (discard any ended/finished events).
+3. Produce TWO actionable deliverables in clean, sharp formatting (Indonesian for explanations, punchy English for the LinkedIn/X post draft so it reaches global clients/recruiters):
+
+Deliverable A — 📢 READY-TO-POST LINKEDIN/X DRAFT (Inbound Client Magnet):
+- Pick the single most interesting outage, CVE, or infra trend from the data.
+- Write a short, sharp, non-robotic post (max 120 words) from Riyan's perspective sharing 1 architectural takeaway or prevention tip. No cringe hashtags, no "I am excited to announce". Ready to copy-paste.
+
+Deliverable B — 💰 ACTIONABLE BOUNTY / HACKATHON BLUEPRINT:
+- Pick the best active bounty/hackathon with real cash/grant rewards. (If none are active/valid, write "Tidak ada bounty aktif yang layak hari ini.")
+- Provide: Name, Prize/Reward, Direct URL, and a 3-bullet "Quick MVP Blueprint" on how Riyan can build/submit it fast using Python/K8s/AI.
+
+Deliverable C — ⚡ QUICK INTEL RADAR (Max 2-3 bullets):
+- Brief 1-line summary + URL of the remaining notable tech links just for awareness.
+
+Output ONLY the formatted Telegram message using this exact template:
+
+🤖 **AI AGENCY BRIEFING (READY TO EXECUTE)**
+====================================
+
+📢 **DRAF POSTINGAN LINKEDIN / X (TINGGAL COPAS)**
+"[Isi draf postingan bahasa Inggris yang tajam & natural]"
+🔗 Sumber inspirasi: [URL]
+
+💰 **TARGET BOUNTY / HACKATHON & BLUEPRINT**
+- **[Nama Bounty / Hackathon]** (Hadiah: [Nominal])
+  🛠️ **Blueprint Eksekusi:**
+  1. [Langkah teknis 1]
+  2. [Langkah teknis 2]
+  3. [Langkah teknis 3]
+  🔗 Daftar/Eksekusi: [URL]
+
+⚡ **RADAR TEKNIS SINGKAT**
+- **[Judul]** — [1 kalimat intisari] ([URL])
+"""
+    return generate_with_fallback(client, prompt, temperature=0.4)
+
+
+def agent_quality_control(client, raw_data: dict, draft_briefing: str) -> dict:
+    """
+    Karyawan 3 (QC Gatekeeper):
+    Menilai apakah briefing hari ini cukup berbobot untuk dikirim ke Telegram bos (Riyan).
+    """
+    prompt = f"""
+You are a strict Quality Control Editor for Riyan's AI Agency.
+Review the generated briefing below against the raw search data:
+
+GENERATED BRIEFING:
+{draft_briefing}
+
+Scoring Rules (1-10):
+- Give 8-10 if: There is a genuinely useful technical insight/post draft AND/OR a valid active paid bounty/hackathon with clear steps.
+- Give 1-6 if: All items are generic fluff, outdated/finished hackathons, hallucinated URLs not present in raw data, or zero actionable value.
+
+Output STRICTLY valid JSON without markdown blocks:
+{{"score": 8, "reason": "Alasan singkat dalam bahasa Indonesia", "approved": true}}
+"""
+    try:
+        raw_res = generate_with_fallback(client, prompt, temperature=0.1)
+        clean_json = raw_res.replace("```json", "").replace("```", "").strip()
+        return json.loads(clean_json)
+    except Exception as e:
+        print(f"⚠️ Warning QC parse gagal ({e}), meloloskan draf secara default.")
+        return {"score": 7, "reason": "Auto-approved (QC JSON fallback)", "approved": True}
+
+
 def get_news_digest(seen_urls: set):
-    """Mengambil intel teknis dan radar hackathon/bounty aktif."""
+    """Pipeline Kantor AI: Scout -> Architect -> QC Gatekeeper."""
     today_str = datetime.now().strftime("%B %Y")
 
     search_configs = {
@@ -181,7 +259,7 @@ def get_news_digest(seen_urls: set):
             "topic": "news",
         },
         "CLOUD_AI_INFRA": {
-            "query": f'("Kubernetes security" OR "CVE" OR "vLLM" OR "AI infrastructure" OR "GPU cluster") ("release" OR "architecture") {today_str}',
+            "query": f'("Kubernetes security" OR "CVE" OR "vLLM" OR "AI infrastructure" OR "Terraform") ("release" OR "architecture") {today_str}',
             "domains": None,
             "topic": "news",
         },
@@ -204,15 +282,21 @@ def get_news_digest(seen_urls: set):
         },
     }
 
+    # 1. Karyawan 1 (Scout) bekerja
     digest_data = {}
     for cat, cfg in search_configs.items():
         digest_data[cat] = search_tavily(
             cfg["query"], seen_urls, domains=cfg["domains"], topic=cfg["topic"]
         )
 
-    total_items = sum(len(items) for items in digest_data.values())
-    if total_items == 0:
-        print("ℹ️ Tidak ada update baru (berita teknis maupun hackathon) hari ini.")
+    new_urls = [
+        item["clean_url"]
+        for cat in digest_data.values()
+        for item in cat
+    ]
+
+    if not new_urls:
+        print("ℹ️ Tidak ada update baru hari ini.")
         return None, []
 
     if not GEMINI_API_KEY:
@@ -220,51 +304,24 @@ def get_news_digest(seen_urls: set):
 
     client = genai.Client(api_key=GEMINI_API_KEY)
 
-    prompt = f"""
-You are an Executive Tech Advisor and Opportunity Scout for Riyan (Senior SRE / Cloud Engineer).
-Summarize this raw data into concise, high-density Bahasa Indonesia.
+    # 2. Karyawan 2 (Architect) meracik draf konten & blueprint bounty
+    print("🧠 Karyawan 2 (Architect) sedang menyusun draf konten & blueprint...")
+    briefing_text = agent_architect(client, digest_data)
 
-RAW DATA:
-{digest_data}
+    # 3. Karyawan 3 (QC) menyaring kualitas sebelum ganggu HP lu
+    print("🕵️ Karyawan 3 (QC) sedang memeriksa kualitas hasil...")
+    qc_result = agent_quality_control(client, digest_data, briefing_text)
+    score = qc_result.get("score", 0)
+    reason = qc_result.get("reason", "-")
+    print(f"📊 Hasil QC: Skor {score}/10 | Alasan: {reason}")
 
-Instructions:
-1. Divide into 2 primary sections:
-   - 🚨 **SRE & CLOUD INCIDENT INTELLIGENCE** (from OUTAGES and CLOUD_AI_INFRA)
-   - 🏆 **GLOBAL HACKATHONS & BOUNTY RADAR** (from HACKATHONS_BOUNTIES)
-2. For Tech Intelligence items:
-   - Bold Title
-   - 1-2 sentence core engineering takeaway (root cause, vulnerability, or infra enhancement).
-   - Direct valid URL.
-3. For Hackathon / Bounty items (STRICT FILTERING):
-   - ONLY include hackathons/bounties that are CURRENTLY ACTIVE, LIVE, or UPCOMING.
-   - If the snippet states that the hackathon is "Finished", "Ended", "Concluded", or its submission window has already passed, DISCARD IT ENTIRELY.
-   - Bold Competition / Bounty Name
-   - Mention Prize Pool / Reward if stated, current status or deadline, and technical focus (AI Agents, Cloud Native, Go, Python, etc.)
-   - Direct application / registration URL.
-4. If either section is empty (or all candidates were discarded), output "Belum ada update baru hari ini." for that section.
+    if score < 7 or not qc_result.get("approved", False):
+        print("🛑 Draf ditahan oleh QC (skor di bawah 7). Telegram tidak akan di-spam.")
+        # Tetap kembalikan new_urls agar artikel ampas hari ini tidak dicek ulang besok
+        return None, new_urls
 
-Format Template:
-📰 **TECH & OPPORTUNITY DIGEST** 📰
-====================================
-
-🚨 **SRE & CLOUD INCIDENT INTELLIGENCE**
-- **[Judul Artikel / Insiden]**
-  [Analisis teknis 1-2 kalimat: Masalah / Root cause / Mitigasi]
-  🔗 Baca laporan: [URL]
-
-🏆 **GLOBAL HACKATHONS & BOUNTY RADAR**
-- **[Nama Hackathon / Proyek Bounty]**
-  💰 Hadiah: [Estimasi Prize Pool / Reward] | 🛠️ Fokus: [Tech stack / Track tantangan]
-  🔗 Info & Daftar: [URL]
-"""
-    summary_text = generate_summary_with_fallback(client, prompt)
-
-    new_urls = [
-        item["clean_url"]
-        for cat in digest_data.values()
-        for item in cat
-    ]
-    return summary_text, new_urls
+    final_output = f"{briefing_text}\n\n🛡️ _QC Score: {score}/10 — {reason}_"
+    return final_output, new_urls
 
 
 def send_safe_message(chat_id, text):
@@ -288,9 +345,8 @@ if __name__ == "__main__":
     is_cron_mode = "--cron" in sys.argv or os.getenv("RUN_MODE") == "cron"
 
     if is_cron_mode:
-        print("🚀 Menjalankan Digest Bot dalam MODE CRON (GitHub Actions)...")
+        print("🚀 Menjalankan AI Agency Bot dalam MODE CRON (GitHub Actions)...")
 
-        # Mengumpulkan target pengiriman (DM pribadi & Channel)
         target_chats = [cid.strip() for cid in [TELEGRAM_CHAT_ID, TELEGRAM_CHANNEL_ID] if cid]
 
         if not TELEGRAM_BOT_TOKEN or not target_chats:
@@ -298,15 +354,15 @@ if __name__ == "__main__":
             sys.exit(1)
 
         seen_urls = load_seen_news()
-        print(f"🔎 Menyisir radar berita teknis & hackathon (Riwayat: {len(seen_urls)} data)...")
+        print(f"🔎 Menyisir radar intel & bounty (Riwayat: {len(seen_urls)} data)...")
 
         try:
             report, new_urls = get_news_digest(seen_urls)
+
             if report:
                 any_success = False
-
                 for target in target_chats:
-                    print(f"📤 Mengirim laporan ke Target: {target}...")
+                    print(f"📤 Mengirim briefing ke Target: {target}...")
                     if send_safe_message(target, report):
                         any_success = True
 
@@ -314,8 +370,14 @@ if __name__ == "__main__":
                     seen_urls.update(new_urls)
                     save_seen_news(seen_urls)
                     print("✅ Berhasil dikirim dan state seen_news.json diperbarui.")
+            elif new_urls:
+                # Simpan URL yang ditolak QC supaya tidak diproses ulang besok
+                seen_urls.update(new_urls)
+                save_seen_news(seen_urls)
+                print("🧹 URL berkualitas rendah sudah ditandai seen tanpa spam ke Telegram.")
             else:
-                print("ℹ️ Tidak ada pesan terkirim (tidak ada entri baru).")
+                print("ℹ️ Tidak ada entri baru hari ini.")
+
             sys.exit(0)
         except Exception as e:
             print(f"❌ Terjadi error: {e}")
