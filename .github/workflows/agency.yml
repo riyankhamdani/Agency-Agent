@@ -1,4 +1,4 @@
-name: Daily News Bot Execution (Jam 5 Sore WIB)
+name: Daily Agency Agent Execution (Jam 5 Sore WIB)
 
 on:
   schedule:
@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: write
+  actions: write
 
 jobs:
   run-bot:
@@ -25,7 +26,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install requests pyTelegramBotAPI google-genai tavily-python
 
-      - name: Run News Bot Script (Mode Cron)
+      - name: Run Agency Agent Script (Mode Cron)
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           TAVILY_API_KEY: ${{ secrets.TAVILY_API_KEY }}
@@ -47,3 +48,10 @@ jobs:
           else
             echo "ℹ️ File seen_news.json belum ada di runner, skip commit."
           fi
+
+      - name: Auto-Cleanup Old Workflow Runs
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh run list --limit 100 --json databaseId -q '.[5:] | .[].databaseId' | xargs -r -n1 gh run delete
