@@ -1,38 +1,42 @@
-# ⚡ News-Agent: SRE & Cloud Incident Intelligence Pipeline
+# ⚡ RiyanAgencyBot (`agency-agent`): Autonomous SRE & Opportunity AI Pipeline
 
-[![News Bot Workflow](https://github.com/riyankhamdani/News-Agent/actions/workflows/news_bot.yml/badge.svg)](https://github.com/riyankhamdani/News-Agent/actions)
+[![News Bot Workflow](https://github.com/riyankhamdani/agency-agent/actions/workflows/news_bot.yml/badge.svg)](https://github.com/riyankhamdani/agency-agent/actions)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 
-An automated, serverless intelligence engine aggregating production incidents, cloud post-mortems, security CVEs, and active hackathons into high-signal executive digests delivered directly to Telegram.
+An autonomous, serverless multi-agent pipeline that transforms real-time cloud post-mortems, security CVEs, and active developer bounties into **ready-to-execute inbound content and MVP blueprints**—delivered directly to Telegram with zero infrastructure overhead.
 
-Designed with zero-maintenance, cloud-native resilience, and multi-model LLM fallback.
+Designed with a 3-agent relay architecture (**Scout → Architect → QC Gatekeeper**), stateful deduplication, and dynamic multi-model LLM fallback.
 
 ---
 
-## 🏗️ Architecture & Pipeline Flow
+## 🏗️ Multi-Agent Architecture & Pipeline Flow
 
-The workflow runs on a serverless GitHub Actions cron schedule, ingesting real-time data, filtering state duplicates, synthesizing takeaways via Gemini, and dispatching multi-target alerts.
+Instead of dumping raw news feeds, the pipeline operates as an automated 3-stage digital agency running on GitHub Actions cron schedules:
 
 ```mermaid
 flowchart LR
-    A[Cron Trigger\nGitHub Actions] --> B[Data Ingestion\nTavily Search API]
-    B --> C[Deduplication Engine\nseen_news.json State]
-    C --> D[Synthesis & Filtering\nGemini Dynamic Fallback]
-    D --> E[Multi-Target Delivery\nTelebot]
-    E --> F[Private DM Alert]
-    E --> G[Public Telegram Channel]
-    E --> H[State Persistence\nGit Auto-Commit]
+    A["Cron Trigger<br/>GitHub Actions"] --> B["Agent 1: Scout<br/>Tavily Search API"]
+    B --> C["Deduplication Engine<br/>seen_news.json State"]
+    C --> D["Agent 2: Architect<br/>Content & Bounty Blueprints"]
+    D --> E{"Agent 3: QC Gatekeeper<br/>Score >= 7?"}
+    E -- Yes --> F["Multi-Target Delivery<br/>Telegram DM & Channel"]
+    E -- No --> G["Silent Discard<br/>Zero Notification Spam"]
+    F --> H["State Persistence<br/>Git Auto-Commit"]
+    G --> H
 ```
 
 ---
 
 ## 🎯 Key Engineering Highlights
 
-- **Dynamic Model Fallback Resilience:** Gracefully switches across Gemini models (`gemini-2.5-flash`, `2.0-flash`, `1.5-flash`, etc.) with exponential backoff and jitter if quota or deprecation errors occur.
+- **3-Agent Relay Pipeline (`Scout` → `Architect` → `QC`):**
+  - **Scout:** Ingests fresh cloud/Kubernetes incident retrospectives, CVEs, and live hackathons/bounties via Tavily.
+  - **Solutions & Content Architect:** Synthesizes high-impact incidents into ready-to-post LinkedIn/X thought-leadership drafts and breaks down active bounties into 3-step technical MVP blueprints.
+  - **QC Gatekeeper:** Scores output quality (`1–10`) via structured JSON evaluation; suppresses low-signal alerts (`score < 7`) while still recording seen URLs to prevent reprocessing.
+- **Dynamic Model Fallback Resilience:** Gracefully switches across active Gemini models (`gemini-2.5-flash`, `gemini-2.0-flash`, `gemini-1.5-flash`, `gemini-2.5-pro`, etc.) with exponential backoff and jitter on quota or deprecation errors.
 - **Stateful Ingestion & Zero Noise:** Maintains a normalized URL registry (`seen_news.json`) committed back into version control to guarantee zero duplicate alerts across cron intervals.
-- **Strict Content Filtering:** LLM prompt enforces rejection of stale/concluded hackathons and distills complex infrastructure outages into 1–2 sentence root cause takeaways.
-- **Dual-Path Broadcast:** Concurrently delivers personal operational notifications and synchronizes public broadcasts to Telegram community channels.
-- **100% Serverless:** Runs without persistent compute infrastructure or hosting costs.
+- **Dual-Path Broadcast:** Concurrently dispatches executive briefings to private Telegram DMs and public community channels.
+- **100% Serverless:** Runs entirely on GitHub Actions with zero persistent compute or hosting costs.
 
 ---
 
@@ -41,22 +45,22 @@ flowchart LR
 - **Runtime:** Python 3.10+
 - **Orchestration:** GitHub Actions Cron Workflows
 - **Search & Ingestion:** Tavily API
-- **LLM Synthesis:** Google GenAI SDK (`google-genai`)
+- **Multi-Agent Synthesis & QC:** Google GenAI SDK (`google-genai`)
 - **Messaging Delivery:** Python Telegram Bot API (`pyTelegramBotAPI`)
-- **State Store:** Git-persisted JSON state
+- **State Store:** Git-persisted JSON state (`seen_news.json`)
 
 ---
 
 ## ⚙️ Environment Configuration
 
-The pipeline requires the following secrets configured in repository settings (`Settings -> Secrets and variables -> Actions`):
+Configure the following secrets in your repository settings (`Settings -> Secrets and variables -> Actions`):
 
 | Variable | Description |
 |---|---|
 | `GEMINI_API_KEY` | Google AI Studio API Token |
 | `TAVILY_API_KEY` | Tavily Search API Token |
-| `TELEGRAM_BOT_TOKEN` | Telegram Bot Token from `@BotFather` |
-| `TELEGRAM_CHAT_ID` | Personal chat ID for direct alerts |
+| `TELEGRAM_BOT_TOKEN` | Telegram Bot Token from `@BotFather` (`RiyanAgencyBot`) |
+| `TELEGRAM_CHAT_ID` | Personal chat ID for direct executive briefings |
 | `TELEGRAM_CHANNEL_ID` | Target channel username or ID |
 
 ---
@@ -65,8 +69,8 @@ The pipeline requires the following secrets configured in repository settings (`
 
 ```bash
 # Clone the repository
-git clone [https://github.com/riyankhamdani/News-Agent.git](https://github.com/riyankhamdani/News-Agent.git)
-cd News-Agent
+git clone [https://github.com/riyankhamdani/agency-agent.git](https://github.com/riyankhamdani/agency-agent.git)
+cd agency-agent
 
 # Install dependencies
 pip install -r requirements.txt
