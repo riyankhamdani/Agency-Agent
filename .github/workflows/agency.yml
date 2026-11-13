@@ -1,8 +1,8 @@
-name: Daily Agency Agent Execution (Jam 5 Sore WIB)
+name: Daily Agency Agent Execution
 
 on:
   schedule:
-    - cron: '43 9 * * *'
+    - cron: '00 9 * * *'
   workflow_dispatch:      # Tombol manual eksekusi
 
 permissions:
