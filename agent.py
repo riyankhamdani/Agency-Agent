@@ -110,34 +110,35 @@ def search_tavily(query: str, seen_urls: set, domains: list = None, topic: str =
 
 
 def generate_with_fallback(client, prompt: str, temperature: float = 0.3, retries_per_model: int = 3, initial_delay: int = 5) -> str:
-    """Memanggil Gemini API secara dinamis dengan fallback model aktif di akun."""
+    """Memanggil Gemini API secara dinamis dengan fallback model teks aktif di akun."""
     candidate_models = []
+    excluded_keywords = ("embedding", "image", "tts", "audio", "video", "veo", "imagen", "robotics", "computer-use")
 
     try:
         active_models = [m.name.replace("models/", "") for m in client.models.list()]
         preferred = [
+            "gemini-3.1-flash-lite",
+            "gemini-3-flash",
+            "gemini-3.1-pro",
+            "gemini-3-pro",
             "gemini-2.5-flash",
-            "gemini-2.0-flash",
-            "gemini-1.5-flash",
             "gemini-2.5-flash-lite",
             "gemini-2.5-pro",
-            "gemini-1.5-pro",
         ]
         for pref in preferred:
             if pref in active_models:
                 candidate_models.append(pref)
         for m in active_models:
-            if "gemini" in m and "embedding" not in m and m not in candidate_models:
+            if "gemini" in m and not any(k in m for k in excluded_keywords) and m not in candidate_models:
                 candidate_models.append(m)
     except Exception as e:
         print(f"⚠️ Gagal membaca model dinamis: {e}. Menggunakan fallback default.")
 
     if not candidate_models:
         candidate_models = [
+            "gemini-3.1-flash-lite",
+            "gemini-3-flash",
             "gemini-2.5-flash",
-            "gemini-2.0-flash",
-            "gemini-1.5-flash",
-            "gemini-2.5-pro",
         ]
 
     config = types.GenerateContentConfig(
@@ -174,8 +175,10 @@ def agent_architect(client, digest_data: dict) -> str:
     Karyawan 2 (Solutions & Content Architect):
     Mengubah berita mentah menjadi aset siap pakai (Draf Postingan Authority + Blueprint Eksekusi Bounty).
     """
+    current_date = datetime.now().strftime("%d %B %Y")
     prompt = f"""
 You are a Senior Cloud/SRE Solutions Architect and Ghostwriter working for Riyan (a Cloud & DevOps Engineer experienced in Kubernetes, Terraform, CI/CD, and AI infra).
+Today's date is {current_date}.
 Your job is NOT just to summarize news, but to turn raw intelligence into READY-TO-USE MONEY & AUTHORITY ASSETS so Riyan doesn't have to think from scratch.
 
 RAW DATA:
@@ -183,8 +186,9 @@ RAW DATA:
 
 Instructions:
 1. Analyze the items in OUTAGES, CLOUD_AI_INFRA, and HACKATHONS_BOUNTIES.
-2. Pick ONLY the highest-impact technical incident/release and the best ACTIVE/UPCOMING hackathon or paid bounty (discard any ended/finished events).
-3. Produce TWO actionable deliverables in clean, sharp formatting (Indonesian for explanations, punchy English for the LinkedIn/X post draft so it reaches global clients/recruiters):
+2. Pick ONLY the highest-impact technical incident/release and the best ACTIVE/UPCOMING hackathon or paid bounty relative to today's date ({current_date}) — discard any ended/finished events.
+3. Use ONLY exact URLs present in RAW DATA. Never invent or alter URLs.
+4. Produce THREE actionable deliverables in clean, sharp formatting (Indonesian for explanations, punchy English for the LinkedIn/X post draft so it reaches global clients/recruiters):
 
 Deliverable A — 📢 READY-TO-POST LINKEDIN/X DRAFT (Inbound Client Magnet):
 - Pick the single most interesting outage, CVE, or infra trend from the data.
@@ -225,16 +229,22 @@ def agent_quality_control(client, raw_data: dict, draft_briefing: str) -> dict:
     Karyawan 3 (QC Gatekeeper):
     Menilai apakah briefing hari ini cukup berbobot untuk dikirim ke Telegram bos (Riyan).
     """
+    current_date = datetime.now().strftime("%d %B %Y")
     prompt = f"""
 You are a strict Quality Control Editor for Riyan's AI Agency.
-Review the generated briefing below against the raw search data:
+Today's real-world date is {current_date}. Do NOT treat dates or URLs from the year 2026 as future hallucinations.
+
+Compare the GENERATED BRIEFING below against the RAW SEARCH DATA:
+
+RAW SEARCH DATA:
+{json.dumps(raw_data, indent=2)}
 
 GENERATED BRIEFING:
 {draft_briefing}
 
 Scoring Rules (1-10):
-- Give 8-10 if: There is a genuinely useful technical insight/post draft AND/OR a valid active paid bounty/hackathon with clear steps.
-- Give 1-6 if: All items are generic fluff, outdated/finished hackathons, hallucinated URLs not present in raw data, or zero actionable value.
+- Give 8-10 if: The URLs in the briefing match the URLs in RAW SEARCH DATA, AND there is a genuinely useful technical insight/post draft AND/OR a valid active paid bounty/hackathon with clear steps.
+- Give 1-6 if: URLs are fabricated (not found in RAW SEARCH DATA), all items are generic fluff, hackathons are clearly already expired before {current_date}, or there is zero actionable value.
 
 Output STRICTLY valid JSON without markdown blocks:
 {{"score": 8, "reason": "Alasan singkat dalam bahasa Indonesia", "approved": true}}
@@ -317,7 +327,6 @@ def get_news_digest(seen_urls: set):
 
     if score < 7 or not qc_result.get("approved", False):
         print("🛑 Draf ditahan oleh QC (skor di bawah 7). Telegram tidak akan di-spam.")
-        # Tetap kembalikan new_urls agar artikel ampas hari ini tidak dicek ulang besok
         return None, new_urls
 
     final_output = f"{briefing_text}\n\n🛡️ _QC Score: {score}/10 — {reason}_"
@@ -371,7 +380,6 @@ if __name__ == "__main__":
                     save_seen_news(seen_urls)
                     print("✅ Berhasil dikirim dan state seen_news.json diperbarui.")
             elif new_urls:
-                # Simpan URL yang ditolak QC supaya tidak diproses ulang besok
                 seen_urls.update(new_urls)
                 save_seen_news(seen_urls)
                 print("🧹 URL berkualitas rendah sudah ditandai seen tanpa spam ke Telegram.")
