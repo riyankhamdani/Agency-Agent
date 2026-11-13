@@ -2,7 +2,7 @@ name: Daily Agency Agent Execution (Jam 5 Sore WIB)
 
 on:
   schedule:
-    - cron: '0 10 * * *'  # Jam 10:00 UTC = Jam 17:00 WIB
+    - cron: '43 9 * * *'
   workflow_dispatch:      # Tombol manual eksekusi
 
 permissions:
