@@ -2,7 +2,7 @@ name: Daily Agency Agent Execution
 
 on:
   schedule:
-    - cron: '00 9 * * *'
+    - cron: '37 9 * * *'
   workflow_dispatch:      # Tombol manual eksekusi
 
 permissions:
