@@ -50,7 +50,7 @@ jobs:
             git add seen_news.json
             if ! git diff --staged --quiet; then
               git commit -m "chore: persist seen_news state [skip ci]"
-              git pull --rebase origin main
+              git pull --rebase -X ours origin main
               git push origin main
             fi
           else
