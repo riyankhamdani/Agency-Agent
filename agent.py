@@ -318,7 +318,7 @@ def get_news_digest(seen_urls: set):
     print("🧠 Karyawan 2 (Architect) sedang menyusun draf konten & blueprint...")
     briefing_text = agent_architect(client, digest_data)
 
-    # 3. Karyawan 3 (QC) menyaring kualitas sebelum ganggu HP lu
+    # 3. Karyawan 3 (QC) menyaring kualitas sebelum ganggu HP
     print("🕵️ Karyawan 3 (QC) sedang memeriksa kualitas hasil...")
     qc_result = agent_quality_control(client, digest_data, briefing_text)
     score = qc_result.get("score", 0)
@@ -337,13 +337,16 @@ def send_safe_message(chat_id, text):
     if not bot:
         print("❌ Bot instance tidak ditemukan.")
         return False
+
+    safe_text = text[:4000] + "\n\n...(dipotong otomatis)" if len(text) > 4096 else text
+
     try:
-        bot.send_message(chat_id, text, disable_web_page_preview=True, parse_mode="Markdown")
+        bot.send_message(chat_id, safe_text, disable_web_page_preview=True, parse_mode="Markdown")
         return True
     except Exception as e:
         print(f"⚠️ Gagal kirim via Markdown ({e}). Mencoba teks biasa...")
         try:
-            bot.send_message(chat_id, text, disable_web_page_preview=True)
+            bot.send_message(chat_id, safe_text, disable_web_page_preview=True)
             return True
         except Exception as err:
             print(f"❌ Gagal total kirim ke Telegram ({chat_id}): {err}")
@@ -356,7 +359,8 @@ if __name__ == "__main__":
     if is_cron_mode:
         print("🚀 Menjalankan AI Agency Bot dalam MODE CRON (GitHub Actions)...")
 
-        target_chats = [cid.strip() for cid in [TELEGRAM_CHAT_ID, TELEGRAM_CHANNEL_ID] if cid]
+        raw_targets = [cid.strip() for cid in [TELEGRAM_CHAT_ID, TELEGRAM_CHANNEL_ID] if cid and cid.strip()]
+        target_chats = list(dict.fromkeys(raw_targets))
 
         if not TELEGRAM_BOT_TOKEN or not target_chats:
             print("❌ Error: Secrets Telegram belum diset.")
@@ -379,6 +383,9 @@ if __name__ == "__main__":
                     seen_urls.update(new_urls)
                     save_seen_news(seen_urls)
                     print("✅ Berhasil dikirim dan state seen_news.json diperbarui.")
+                elif not any_success:
+                    print("❌ Semua pengiriman Telegram gagal. seen_news.json tidak diperbarui.")
+                    sys.exit(1)
             elif new_urls:
                 seen_urls.update(new_urls)
                 save_seen_news(seen_urls)
